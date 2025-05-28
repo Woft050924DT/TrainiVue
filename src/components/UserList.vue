@@ -260,7 +260,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import Swal from 'sweetalert2';
 
@@ -379,25 +379,21 @@ async function submitForm() {
   try {
     if (showAddForm.value) {
       await addUser();
-      await Swal.fire({
-        icon: 'success',
-        title: 'Thành công!',
-        text: 'Thêm user thành công!',
-        timer: 1500,
-        showConfirmButton: false
-      });
     } else {
       await updateUser();
-      await Swal.fire({
-        icon: 'success',
-        title: 'Thành công!',
-        text: 'Cập nhật user thành công!',
-        timer: 1500,
-        showConfirmButton: false
-      });
     }
+    
     closeModal();
-    await loadUsers();
+    
+    // Hiển thị thông báo thành công sau khi đóng modal
+    await Swal.fire({
+      icon: 'success',
+      title: 'Thành công!',
+      text: showAddForm.value ? 'Thêm user thành công!' : 'Cập nhật user thành công!',
+      timer: 1500,
+      showConfirmButton: false
+    });
+    
   } catch (error) {
     console.error('Lỗi khi lưu user:', error);
     await Swal.fire({
@@ -414,6 +410,7 @@ async function submitForm() {
 async function loadUsers() {
   isLoading.value = true;
   try {
+    // Giả lập API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     users.value = [
@@ -474,6 +471,7 @@ async function loadUsers() {
 }
 
 async function addUser() {
+  // Giả lập API call
   await new Promise(resolve => setTimeout(resolve, 1000));
 
   const newUser = {
@@ -482,31 +480,32 @@ async function addUser() {
     createdAt: new Date().toISOString()
   };
 
-  users.value.unshift(newUser); // Thêm user mới vào đầu danh sách
-  console.log('Đã thêm user:', newUser);
-
-  // Cuộn trang đến đầu bảng để đảm bảo user mới hiển thị trên màn hình
-  const tableContainer = document.querySelector('.table-container');
-  if (tableContainer) {
-    tableContainer.scrollTo({
-      top: 0,
-      behavior: 'smooth' // Cuộn mượt mà
-    });
-  }
-
-  // Đảm bảo trang đầu tiên được hiển thị để user mới xuất hiện ngay lập tức
+  // Thêm user mới vào đầu danh sách
+  users.value.unshift(newUser);
+  
+  // Reset về trang đầu tiên để hiển thị user mới
   currentPage.value = 1;
+  
+  // Xóa tìm kiếm để đảm bảo user mới hiển thị
+  searchQuery.value = '';
+  
+  console.log('Đã thêm user:', newUser);
+  
+  // Scroll đến đầu bảng sau khi DOM được cập nhật
+  await nextTick();
+  scrollToTop();
 }
 
 async function updateUser() {
+  // Giả lập API call
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   const index = users.value.findIndex(u => u.id === editingUserId.value);
   if (index !== -1) {
+    // Cập nhật user nhưng giữ nguyên thứ tự và thời gian tạo
     users.value[index] = {
       ...users.value[index],
-      ...formData.value,
-      createdAt: users.value[index].createdAt
+      ...formData.value
     };
     console.log('Đã cập nhật user:', users.value[index]);
   }
@@ -523,12 +522,28 @@ function editUser(user) {
 }
 
 async function deleteUser(userId) {
-  if (!confirm('Bạn có chắc chắn muốn xóa user này?')) return;
+  // Hiển thị xác nhận với SweetAlert thay vì confirm
+  const result = await Swal.fire({
+    title: 'Xác nhận xóa',
+    text: 'Bạn có chắc chắn muốn xóa user này?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Xóa',
+    cancelButtonText: 'Hủy'
+  });
+  
+  if (!result.isConfirmed) return;
   
   try {
+    // Giả lập API call
     await new Promise(resolve => setTimeout(resolve, 500));
     
+    // Xóa user khỏi danh sách
     users.value = users.value.filter(u => u.id !== userId);
+    
+    // Hiển thị thông báo thành công
     await Swal.fire({
       icon: 'success',
       title: 'Thành công!',
@@ -537,9 +552,11 @@ async function deleteUser(userId) {
       showConfirmButton: false
     });
     
+    // Điều chỉnh trang hiện tại nếu trang cuối không còn dữ liệu
     if (paginatedUsers.value.length === 0 && currentPage.value > 1) {
       currentPage.value--;
     }
+    
   } catch (error) {
     console.error('Lỗi khi xóa user:', error);
     await Swal.fire({
@@ -552,10 +569,23 @@ async function deleteUser(userId) {
 }
 
 async function logout() {
-  if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+  const result = await Swal.fire({
+    title: 'Xác nhận đăng xuất',
+    text: 'Bạn có chắc chắn muốn đăng xuất?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#4fc08d',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Đăng xuất',
+    cancelButtonText: 'Hủy'
+  });
+  
+  if (result.isConfirmed) {
+    // Xóa thông tin đăng nhập
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userInfo');
     localStorage.removeItem('rememberMe');
+    
     await Swal.fire({
       icon: 'success',
       title: 'Thành công!',
@@ -563,15 +593,36 @@ async function logout() {
       timer: 1500,
       showConfirmButton: false
     });
+    
+    // Chuyển hướng về trang login
     router.push('/login');
   }
 }
 
+function scrollToTop() {
+  const tableContainer = document.querySelector('.table-container');
+  if (tableContainer) {
+    tableContainer.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }
+  
+  // Cuộn trang lên đầu
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
+
+// Watchers
 watch(searchQuery, () => {
   currentPage.value = 1;
 });
 
+// Lifecycle
 onMounted(() => {
+  // Lấy thông tin user từ localStorage
   const userInfo = localStorage.getItem('userInfo');
   if (userInfo) {
     const parsed = JSON.parse(userInfo);
@@ -579,6 +630,7 @@ onMounted(() => {
     loginTime.value = new Date(parsed.loginTime).toLocaleString('vi-VN');
   }
   
+  // Tải danh sách users
   loadUsers();
 });
 </script>
