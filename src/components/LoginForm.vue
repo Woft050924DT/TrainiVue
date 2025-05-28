@@ -19,177 +19,148 @@
                 <input type="checkbox" id="remember" v-model="rememberMe"/>
                 <label for="remember">Remember me</label>
             </div>
-            
-            <button type="submit">Login</button>
+           
+            <button type="submit" :disabled="isLoading">
+              {{ isLoading ? 'Đang đăng nhập...':'Login' }}
+            </button>
 
             <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
         </form>
     </div>
 </template>
 
-<script>
-export default {
-    name: 'LoginForm',
-    
-    data() {
-        return {
-            text: 'Login Form',
-            username: '',
-            password: '',
-            rememberMe: false,
-            errorMessage: '',
-            isLoading: false
-        }
-    },
-    
-    methods: {
-        handleSubmit() {
-            // Reset error message
-            this.errorMessage = '';
-            
-            // Validation
-            if (!this.username.trim()) {
-                this.errorMessage = 'Please enter your email';
-                return;
-            }
-            
-            if (!this.password.trim()) {
-                this.errorMessage = 'Please enter your password';
-                return;
-            }
-            
-            // Email validation
-            if (!this.isValidEmail(this.username)) {
-                this.errorMessage = 'Please enter a valid email address';
-                return;
-            }
-            
-            // Set loading state
-            this.isLoading = true;
-            
-            // Simulate API call
-            this.performLogin();
-        },
-        
-        async performLogin() {
-            try {
-                // Simulate API call delay
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                // Mock login logic - replace with actual API call
-                const loginData = {
-                    username: this.username,
-                    password: this.password,
-                    rememberMe: this.rememberMe
-                };
-                
-                console.log('Login data:', loginData);
-                
-                // Mock successful login
-                if (this.username === 'admin@example.com' && this.password === 'password') {
-                    this.onLoginSuccess();
-                } else {
-                    this.errorMessage = 'Invalid email or password';
-                }
-                
-            } catch (error) {
-                this.errorMessage = 'Login failed. Please try again.';
-                console.error('Login error:', error);
-            } finally {
-                this.isLoading = false;
-            }
-        },
-        
-        onLoginSuccess() {
-            // Handle successful login
-            console.log('Login successful!');
-            
-            // Save remember me preference
-            if (this.rememberMe) {
-                // Note: In real app, use secure storage
-                console.log('Remember me enabled');
-            }
-            
-            // Reset form
-            this.resetForm();
-            
-            // Emit success event to parent component
-            this.$emit('login-success', {
-                username: this.username,
-                rememberMe: this.rememberMe
-            });
-            
-            // Or redirect using router
-            // this.$router.push('/dashboard');
-        },
-        
-        resetForm() {
-            this.username = '';
-            this.password = '';
-            this.rememberMe = false;
-            this.errorMessage = '';
-        },
-        
-        isValidEmail(email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(email);
-        },
-        
-        // Method để xử lý Enter key
-        handleKeyPress(event) {
-            if (event.key === 'Enter' && !this.isLoading) {
-                this.handleSubmit();
-            }
-        }
-    },
-    
-    mounted() {
-        // Focus vào input đầu tiên khi component mount
-        this.$nextTick(() => {
-            const firstInput = this.$el.querySelector('input[type="text"]');
-            if (firstInput) {
-                firstInput.focus();
-            }
-        });
-    },
-    
-    // Define emits for Vue 3 compatibility
-    emits: ['login-success'],
-    
-    // Computed properties
-    computed: {
-        isFormValid() {
-            return this.username.trim() && 
-                   this.password.trim() && 
-                   this.isValidEmail(this.username);
-        },
-        
-        submitButtonText() {
-            return this.isLoading ? 'Logging in...' : 'Login';
-        }
-    },
-    
-    // Watch for changes
-    watch: {
-        username() {
-            // Clear error when user starts typing
-            if (this.errorMessage) {
-                this.errorMessage = '';
-            }
-        },
-        
-        password() {
-            // Clear error when user starts typing
-            if (this.errorMessage) {
-                this.errorMessage = '';
-            }
-        }
-    }
+<script setup>
+import { ref, watch, onMounted, defineEmits } from 'vue';
+import { useRouter } from 'vue-router';
+
+// Lấy instance để phát sự kiện (emit)
+const emit = defineEmits(['login-success']);
+const router = useRouter();
+
+// State phản ứng (reactive)
+const text = ref('Login Form');
+const username = ref('');
+const password = ref('');
+const rememberMe = ref(false);
+const errorMessage = ref('');
+const isLoading = ref(false);
+
+// Hàm kiểm tra định dạng email hợp lệ
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 }
 
+// Các hàm xử lý
+function resetForm() {
+  username.value = '';
+  password.value = '';
+  rememberMe.value = false;
+  errorMessage.value = '';
+}
+
+function onLoginSuccess() {
+  console.log('Đăng nhập thành công!');
+ 
+  if (rememberMe.value) {
+    console.log('Chức năng nhớ đăng nhập được bật');
+    localStorage.setItem('rememberMe', 'true');
+  }
+ 
+  // Lưu token/session vào localStorage
+  localStorage.setItem('isLoggedIn', 'true');
+  localStorage.setItem('userInfo', JSON.stringify({
+    username: username.value,
+    loginTime: new Date().toISOString()
+  }));
+ 
+  // Emit event cho parent component (nếu cần)
+  emit('login-success', {
+    username: username.value,
+    rememberMe: rememberMe.value
+  });
+ 
+  resetForm();
+ 
+  // Chuyển hướng sang UserList
+  router.push('/users');
+}
+
+async function performLogin() {
+  try {
+    // Giả lập delay khi gọi API
+    await new Promise(resolve => setTimeout(resolve, 1500));
+   
+    const loginData = {
+      username: username.value,
+      password: password.value,
+      rememberMe: rememberMe.value
+    };
+   
+    console.log('Dữ liệu đăng nhập:', loginData);
+   
+    // Kiểm tra nhiều tài khoản hợp lệ - FIX: Đổi từ cred.email thành cred.username
+    const validCredentials = [
+      { username: 'admin@example.com', password: 'password' },
+      { username: 'htdat2711@gmail.com', password: '2711dt.com' },
+      { username: 'adminexample@gmail.com', password: 'password' }
+    ];
+   
+    // FIX: So sánh đúng field username
+    const isValid = validCredentials.some(
+      cred => cred.username === username.value && cred.password === password.value
+    );
+   
+    if (isValid) {
+      onLoginSuccess();
+    } else {
+      errorMessage.value = 'Email hoặc mật khẩu không đúng';
+    }
+  } catch (error) {
+    errorMessage.value = 'Đăng nhập thất bại. Vui lòng thử lại.';
+    console.error('Lỗi đăng nhập:', error);
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+function handleSubmit() {
+  errorMessage.value = '';
+
+  if (!username.value.trim()) {
+    errorMessage.value = 'Vui lòng nhập email';
+    return;
+  }
+  if (!password.value.trim()) {
+    errorMessage.value = 'Vui lòng nhập mật khẩu';
+    return;
+  }
+  if (!isValidEmail(username.value)) {
+    errorMessage.value = 'Vui lòng nhập đúng định dạng email';
+    return;
+  }
+
+  isLoading.value = true;
+  performLogin();
+}
+
+// Theo dõi sự thay đổi của username và password để xóa lỗi
+watch(username, () => {
+  if (errorMessage.value) errorMessage.value = '';
+});
+watch(password, () => {
+  if (errorMessage.value) errorMessage.value = '';
+});
+
+// Tự động focus vào ô input đầu tiên khi mount
+onMounted(() => {
+  const firstInput = document.querySelector('input[type="text"]');
+  if (firstInput) firstInput.focus();
+});
 </script>
 
 <style scoped>
+/* Giữ nguyên style hiện tại */
 .login-container {
     width: 400px;
     padding: 2.5rem 3rem;
@@ -221,7 +192,7 @@ export default {
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem; /* Khoảng cách nhỏ giữa label và input */
+    gap: 0.5rem;
 }
 
 /* Nhóm checkbox */
@@ -238,7 +209,7 @@ export default {
     font-weight: 600;
     font-size: 1rem;
     color: #555;
-    margin-bottom: 0; /* Loại bỏ margin-bottom mặc định */
+    margin-bottom: 0;
 }
 
 .checkbox-group label {
@@ -321,17 +292,17 @@ button[type="submit"]:active {
         padding: 2rem 1.5rem;
         margin: 30px auto;
     }
-    
+   
     .form-group {
         gap: 0.4rem;
     }
-    
+   
     input[type="text"],
     input[type="password"] {
         padding: 12px 14px;
         font-size: 0.95rem;
     }
-    
+   
     button[type="submit"] {
         padding: 12px 0;
         font-size: 1rem;
