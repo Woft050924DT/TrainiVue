@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginForm  from '@/components/LoginForm.vue'
-import UserList from '@/components/UserList.vue'
-
+import LoginPage from '@/views/LoginPage.vue'
+import UserManager from '@/components/UserManager.vue'
 const routes = [
   {
     path: '/',
@@ -10,24 +9,22 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: LoginForm,
+    component: LoginPage,
     meta: {
-      requiresGuest: true //Chi cho phép truy cập khi chưa đăng nhập
+      requiresGuest: true
     }
   },
-
   {
     path: '/users',
     name: 'UserList',
-    component: UserList,
+    component: UserManager,
     meta: {
-      requiresAuth: true //Chỉ cho phép truy cập khi đã đăng nhập
+      requiresAuth: true
     }
   },
-
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/login' //Chuyển hướng về trang đăng nhập nếu không tìm thấy route
+    redirect: '/login'
   }
 ]
 
@@ -37,19 +34,16 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-  console.log(`Navigating to ${to.name}, isLoggedIn: ${isLoggedIn}`);
+  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true'
   if (to.meta.requiresAuth && !isLoggedIn) {
-    console.log('Redirecting to Login');
-    next({ name: 'Login' });
-    return;
+    next({ name: 'Login' })
+    return
   }
   if (to.meta.requiresGuest && isLoggedIn) {
-    console.log('Redirecting to UserList');
-    next({ name: 'UserList' });
-    return;
+    next({ name: 'UserList' })
+    return
   }
-  next();
-});
+  next()
+})
 
 export default router

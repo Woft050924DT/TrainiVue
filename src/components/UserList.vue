@@ -1,927 +1,188 @@
 <template>
-  <div class="user-management">
-    <!-- Header với logout -->
-    <header class="header">
-      <div class="header-content">
-        <h1>Quản lý User</h1>
-        <div class="user-info">
-          <button @click="toggleSidebar" class="toggle-sidebar-btn">
-            <i :class="isSidebarVisible ? 'icon-close' : 'icon-menu'"></i>
-            {{ isSidebarVisible ? 'Ẩn Dashboard' : 'Hiện Dashboard' }}
-          </button>
-          <span>Xin chào, {{ currentUser }}</span>
-          <button @click="logout" class="logout-btn">Đăng xuất</button>
-        </div>
-      </div>
-    </header>
-
-    <!-- Main content: Sidebar và User List -->
-    <div class="main-content">
-      <!-- Sidebar menu -->
-      <nav :class="['sidebar', { 'hidden': !isSidebarVisible }]">
-        <ul class="menu-list">
-          <li>
-            <router-link to="/dashboard" class="menu-item" active-class="active" exact>
-              <i class="icon-dashboard"></i>
-              Dashboard
-            </router-link>
-          </li>
-          <li class="menu-group">
-            <span class="menu-group-title">MERCHANT</span>
-            <ul>
-              <li>
-                <router-link to="/merchants" class="menu-item" active-class="active">
-                  <i class="icon-merchant"></i>
-                  Hồ sơ Merchants
-                  <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/money-fees" class="menu-item" active-class="active">
-                  <i class="icon-money"></i>
-                  Quản lý Tiền & Phí
-                  <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-            </ul>
-          </li>
-          <li class="menu-group">
-            <span class="menu-group-title">QUẢN LÝ GIAO DỊCH</span>
-            <ul>
-              <li>
-                <router-link to="/transactions" class="menu-item" active-class="active">
-                  <i class="icon-transaction"></i>
-                  Danh sách giao dịch
-                  <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-            </ul>
-          </li>
-          <li class="menu-group">
-            <span class="menu-group-title">ĐỐI SOÁT - QUYẾT TOÁN</span>
-            <ul>
-              <li>
-                <router-link to="/reconcile-merchant" class="menu-item" active-class="active">
-                  <i class="icon-reconcile"></i> Đối soát merchant <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/settle-merchant" class="menu-item" active-class="active">
-                  <i class="icon-check"></i> Quyết toán merchant <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/merchant-debt" class="menu-item" active-class="active">
-                  <i class="icon-debt"></i> Công nợ merchant <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-            </ul>
-          </li>
-          <li class="menu-group">
-            <span class="menu-group-title">QUẢN LÝ MÁY POS</span>
-            <ul>
-              <li>
-                <router-link to="/device-import" class="menu-item" active-class="active">
-                  <i class="icon-device"></i> Quản lý nhập máy <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/pos-management" class="menu-item" active-class="active">
-                  <i class="icon-pos"></i> Quản lý POS <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-            </ul>
-          </li>
-          <li class="menu-group">
-            <span class="menu-group-title">QUẢN LÝ TÀI KHOẢN</span>
-            <ul>
-              <li>
-                <router-link to="/gpay-account" class="menu-item" active-class="active">
-                  <i class="icon-account"></i> Tài khoản Gpay <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-              <li>
-                <router-link to="/merchant-account" class="menu-item" active-class="active">
-                  <i class="icon-account"></i> Tài khoản Merchant <i class="icon-chevron-right"></i>
-                </router-link>
-              </li>
-            </ul>
-          </li>
-        </ul>
-      </nav>
-
-      <!-- User List Section -->
-      <div :class="['list-content', { 'full-width': !isSidebarVisible }]">
-        <!-- Action buttons -->
-        <div class="action-bar">
-          <button @click="showAddForm = true" class="add-btn">
-            <span class="icon">+</span>
-            Thêm User
-          </button>
-          <div class="search-box">
-            <input 
-              type="text" 
-              v-model="searchQuery" 
-              placeholder="Tìm kiếm user..."
-              class="search-input"
-            />
-          </div>
-        </div>
-
-        <!-- User List Table -->
-        <div class="table-container">
-          <table class="user-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Tên</th>
-                <th>Email</th>
-                <th>Số điện thoại</th>
-                <th>Ngày tạo</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="isLoading">
-                <td colspan="6" class="loading">Đang tải dữ liệu...</td>
-              </tr>
-              <tr v-else-if="filteredUsers.length === 0">
-                <td colspan="6" class="no-data">Không có dữ liệu</td>
-              </tr>
-              <tr v-else v-for="user in paginatedUsers" :key="user.id">
-                <td>{{ user.id }}</td>
-                <td>{{ user.name }}</td>
-                <td>{{ user.email }}</td>
-                <td>{{ user.phone }}</td>
-                <td>{{ formatDate(user.createdAt) }}</td>
-                <td class="actions">
-                  <button @click="editUser(user)" class="edit-btn">Sửa</button>
-                  <button @click="deleteUser(user.id)" class="delete-btn">Xóa</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div class="pagination" v-if="totalPages > 1">
-          <button 
-            @click="currentPage = 1" 
-            :disabled="currentPage === 1"
-            class="page-btn"
-          >
-            ««
-          </button>
-          <button 
-            @click="currentPage--" 
-            :disabled="currentPage === 1"
-            class="page-btn"
-          >
-            «
-          </button>
-          
-          <span class="page-info">
-            Trang {{ currentPage }} / {{ totalPages }}
-          </span>
-          
-          <button 
-            @click="currentPage++" 
-            :disabled="currentPage === totalPages"
-            class="page-btn"
-          >
-            »
-          </button>
-          <button 
-            @click="currentPage = totalPages" 
-            :disabled="currentPage === totalPages"
-            class="page-btn"
-          >
-            »»
-          </button>
-        </div>
-      </div>
+  <div :class="['list-content', { 'full-width': !isSidebarVisible }]">
+    <!-- User List Table -->
+    <div class="table-container">
+      <table class="user-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Tên</th>
+            <th>Email</th>
+            <th>Số điện thoại</th>
+            <th>Ngày tạo</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="isLoading">
+            <td colspan="6" class="loading">Đang tải dữ liệu...</td>
+          </tr>
+          <tr v-else-if="filteredUsers.length === 0">
+            <td colspan="6" class="no-data">Không có dữ liệu</td>
+          </tr>
+          <tr v-else v-for="user in paginatedUsers" :key="user.id">
+            <td>{{ user.id }}</td>
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.phone }}</td>
+            <td>{{ formatDate(user.createdAt) }}</td>
+            <td class="actions">
+              <button @click="$emit('edit-user', user)" class="edit-btn">Sửa</button>
+              <button @click="$emit('delete-user', user.id)" class="delete-btn">Xóa</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- Modal Add/Edit User -->
-    <div v-if="showAddForm || showEditForm" class="modal-overlay" @click="closeModal">
-      <div class="modal" @click.stop>
-        <div class="modal-header">
-          <h3>{{ showAddForm ? 'Thêm User Mới' : 'Chỉnh sửa User' }}</h3>
-          <button @click="closeModal" class="close-btn">×</button>
-        </div>
-        
-        <form @submit.prevent="submitForm" class="user-form">
-          <div class="form-group">
-            <label for="name">Tên *</label>
-            <input 
-              type="text" 
-              id="name" 
-              v-model="formData.name" 
-              :class="{ error: errors.name }"
-              required
-            />
-            <span v-if="errors.name" class="error-message">{{ errors.name }}</span>
-          </div>
-
-          <div class="form-group">
-            <label for="email">Email *</label>
-            <input 
-              type="email" 
-              id="email" 
-              v-model="formData.email"
-              :class="{ error: errors.email }"
-              required
-            />
-            <span v-if="errors.email" class="error-message">{{ errors.email }}</span>
-          </div>
-
-          <div class="form-group">
-            <label for="phone">Số điện thoại *</label>
-            <input 
-              type="tel" 
-              id="phone" 
-              v-model="formData.phone"
-              :class="{ error: errors.phone }"
-              required
-            />
-            <span v-if="errors.phone" class="error-message">{{ errors.phone }}</span>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" @click="closeModal" class="cancel-btn">Hủy</button>
-            <button type="submit" :disabled="isSubmitting" class="submit-btn">
-              {{ isSubmitting ? 'Đang lưu...' : (showAddForm ? 'Thêm' : 'Cập nhật') }}
-            </button>
-          </div>
-        </form>
-      </div>
+    <!-- Pagination -->
+    <div class="pagination" v-if="totalPages > 1">
+      <button 
+        @click="changePage(1)" 
+        :disabled="currentPage === 1"
+        class="page-btn"
+      >
+        ««
+      </button>
+      <button 
+        @click="changePage(currentPage - 1)" 
+        :disabled="currentPage === 1"
+        class="page-btn"
+      >
+        «
+      </button>
+      
+      <span class="page-info">
+        Trang {{ currentPage }} / {{ totalPages }}
+      </span>
+      
+      <button 
+        @click="changePage(currentPage + 1)" 
+        :disabled="currentPage === totalPages"
+        class="page-btn"
+      >
+        »
+      </button>
+      <button 
+        @click="changePage(totalPages)" 
+        :disabled="currentPage === totalPages"
+        class="page-btn"
+      >
+        »»
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
-import Swal from 'sweetalert2';
+import { computed, nextTick } from 'vue';
 
-const router = useRouter();
-const isSidebarVisible = ref(true);
-
-// State Management
-const users = ref([]);
-const isLoading = ref(false);
-const searchQuery = ref('');
-const currentPage = ref(1);
-const itemsPerPage = ref(5);
-const currentUser = ref('');
-const loginTime = ref('');
-
-// Modal states
-const showAddForm = ref(false);
-const showEditForm = ref(false);
-const isSubmitting = ref(false);
-const editingUserId = ref(null);
-
-// Form data
-const formData = ref({
-  name: '',
-  email: '',
-  phone: ''
+const props = defineProps({
+  users: Array,
+  isLoading: Boolean,
+  searchQuery: String,
+  currentPage: Number,
+  itemsPerPage: Number,
+  isSidebarVisible: Boolean,
 });
 
-// Validation errors
-const errors = ref({});
+const emit = defineEmits(['edit-user', 'delete-user', 'update:currentPage']);
 
-// Computed properties
+// Filter users by search query
 const filteredUsers = computed(() => {
-  if (!searchQuery.value) return users.value;
-  
-  const query = searchQuery.value.toLowerCase();
-  return users.value.filter(user => 
+  if (!props.searchQuery) return props.users;
+
+  const query = props.searchQuery.toLowerCase();
+  return props.users.filter(user => 
     user.name.toLowerCase().includes(query) ||
     user.email.toLowerCase().includes(query) ||
     user.phone.includes(query)
   );
 });
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredUsers.value.length / itemsPerPage.value);
-});
+// Total pages after filter
+const totalPages = computed(() => Math.ceil(filteredUsers.value.length / props.itemsPerPage));
 
+// Users to show on current page
 const paginatedUsers = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value;
-  const end = start + itemsPerPage.value;
+  const start = (props.currentPage - 1) * props.itemsPerPage;
+  const end = start + props.itemsPerPage;
   return filteredUsers.value.slice(start, end);
 });
 
-// Methods
-function toggleSidebar() {
-  isSidebarVisible.value = !isSidebarVisible.value;
-}
-
+// Format date
 function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('vi-VN');
 }
 
-function validateForm() {
-  errors.value = {};
-  
-  if (!formData.value.name.trim()) {
-    errors.value.name = 'Tên không được để trống';
-  }
-  
-  if (!formData.value.email.trim()) {
-    errors.value.email = 'Email không được để trống';
-  } else if (!isValidEmail(formData.value.email)) {
-    errors.value.email = 'Email không đúng định dạng';
-  }
-  
-  if (!formData.value.phone.trim()) {
-    errors.value.phone = 'Số điện thoại không được để trống';
-  } else if (!isValidPhone(formData.value.phone)) {
-    errors.value.phone = 'Số điện thoại không đúng định dạng';
-  }
-  
-  return Object.keys(errors.value).length === 0;
+// Change page
+function changePage(page) {
+  if (page < 1) page = 1;
+  else if (page > totalPages.value) page = totalPages.value;
+  emit('update:currentPage', page);
 }
 
-function isValidEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-function isValidPhone(phone) {
-  const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8,9})$/;
-  return phoneRegex.test(phone);
-}
-
-function resetForm() {
-  formData.value = {
-    name: '',
-    email: '',
-    phone: ''
-  };
-  errors.value = {};
-  editingUserId.value = null;
-}
-
-function closeModal() {
-  showAddForm.value = false;
-  showEditForm.value = false;
-  resetForm();
-}
-
-async function submitForm() {
-  if (!validateForm()) return;
-  
-  isSubmitting.value = true;
-  
-  try {
-    if (showAddForm.value) {
-      await addUser();
-    } else {
-      await updateUser();
-    }
-    
-    closeModal();
-    
-    // Hiển thị thông báo thành công sau khi đóng modal
-    await Swal.fire({
-      icon: 'success',
-      title: 'Thành công!',
-      text: showAddForm.value ? 'Thêm user thành công!' : 'Cập nhật user thành công!',
-      timer: 1500,
-      showConfirmButton: false
-    });
-    
-  } catch (error) {
-    console.error('Lỗi khi lưu user:', error);
-    await Swal.fire({
-      icon: 'error',
-      title: 'Lỗi!',
-      text: 'Có lỗi xảy ra khi lưu dữ liệu',
-      confirmButtonText: 'OK'
-    });
-  } finally {
-    isSubmitting.value = false;
-  }
-}
-
-async function loadUsers() {
-  isLoading.value = true;
-  try {
-    // Giả lập API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    users.value = [
-      {
-        id: 1,
-        name: 'Nguyễn Văn A',
-        email: 'nguyenvana@example.com',
-        phone: '0123456789',
-        createdAt: '2024-01-15T10:30:00Z'
-      },
-      {
-        id: 2,
-        name: 'Trần Thị B',
-        email: 'tranthib@example.com',
-        phone: '0987654321',
-        createdAt: '2024-01-16T14:20:00Z'
-      },
-      {
-        id: 3,
-        name: 'Lê Văn C',
-        email: 'levanc@example.com',
-        phone: '0369258147',
-        createdAt: '2024-01-17T09:15:00Z'
-      },
-      {
-        id: 4,
-        name: 'Phạm Thị D',
-        email: 'phamthid@example.com',
-        phone: '0741852963',
-        createdAt: '2024-01-18T16:45:00Z'
-      },
-      {
-        id: 5,
-        name: 'Hoàng Văn E',
-        email: 'hoangvane@example.com',
-        phone: '0582639741',
-        createdAt: '2024-01-19T11:30:00Z'
-      },
-      {
-        id: 6,
-        name: 'Hà Thành Đạt',
-        email: 'htdat2711@gmail.com',
-        phone: '0987654321',
-        createdAt: '2024-01-20T12:00:00Z'
-      }
-    ];
-  } catch (error) {
-    console.error('Lỗi khi tải danh sách user:', error);
-    await Swal.fire({
-      icon: 'error',
-      title: 'Lỗi!',
-      text: 'Lỗi khi tải danh sách user',
-      confirmButtonText: 'OK'
-    });
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-async function addUser() {
-  // Giả lập API call
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  const newUser = {
-    id: Date.now(),
-    ...formData.value,
-    createdAt: new Date().toISOString()
-  };
-
-  // Thêm user mới vào đầu danh sách
-  users.value.unshift(newUser);
-  
-  // Reset về trang đầu tiên để hiển thị user mới
-  currentPage.value = 1;
-  
-  // Xóa tìm kiếm để đảm bảo user mới hiển thị
-  searchQuery.value = '';
-  
-  console.log('Đã thêm user:', newUser);
-  
-  // Scroll đến đầu bảng sau khi DOM được cập nhật
-  await nextTick();
-  scrollToTop();
-}
-
-async function updateUser() {
-  // Giả lập API call
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  const index = users.value.findIndex(u => u.id === editingUserId.value);
-  if (index !== -1) {
-    // Cập nhật user nhưng giữ nguyên thứ tự và thời gian tạo
-    users.value[index] = {
-      ...users.value[index],
-      ...formData.value
-    };
-    console.log('Đã cập nhật user:', users.value[index]);
-  }
-}
-
-function editUser(user) {
-  formData.value = {
-    name: user.name,
-    email: user.email,
-    phone: user.phone
-  };
-  editingUserId.value = user.id;
-  showEditForm.value = true;
-}
-
-async function deleteUser(userId) {
-  // Hiển thị xác nhận với SweetAlert thay vì confirm
-  const result = await Swal.fire({
-    title: 'Xác nhận xóa',
-    text: 'Bạn có chắc chắn muốn xóa user này?',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#dc3545',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'Xóa',
-    cancelButtonText: 'Hủy'
-  });
-  
-  if (!result.isConfirmed) return;
-  
-  try {
-    // Giả lập API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Xóa user khỏi danh sách
-    users.value = users.value.filter(u => u.id !== userId);
-    
-    // Hiển thị thông báo thành công
-    await Swal.fire({
-      icon: 'success',
-      title: 'Thành công!',
-      text: 'Xóa user thành công!',
-      timer: 1500,
-      showConfirmButton: false
-    });
-    
-    // Điều chỉnh trang hiện tại nếu trang cuối không còn dữ liệu
-    if (paginatedUsers.value.length === 0 && currentPage.value > 1) {
-      currentPage.value--;
-    }
-    
-  } catch (error) {
-    console.error('Lỗi khi xóa user:', error);
-    await Swal.fire({
-      icon: 'error',
-      title: 'Lỗi!',
-      text: 'Có lỗi xảy ra khi xóa user',
-      confirmButtonText: 'OK'
-    });
-  }
-}
-
-async function logout() {
-  const result = await Swal.fire({
-    title: 'Xác nhận đăng xuất',
-    text: 'Bạn có chắc chắn muốn đăng xuất?',
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonColor: '#4fc08d',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'Đăng xuất',
-    cancelButtonText: 'Hủy'
-  });
-  
-  if (result.isConfirmed) {
-    // Xóa thông tin đăng nhập
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('userInfo');
-    localStorage.removeItem('rememberMe');
-    
-    await Swal.fire({
-      icon: 'success',
-      title: 'Thành công!',
-      text: 'Đăng xuất thành công!',
-      timer: 1500,
-      showConfirmButton: false
-    });
-    
-    // Chuyển hướng về trang login
-    router.push('/login');
-  }
-}
-
+// Scroll to top (called by parent after adding user)
 function scrollToTop() {
-  const tableContainer = document.querySelector('.table-container');
-  if (tableContainer) {
-    tableContainer.scrollTo({
+  nextTick(() => {
+    const tableContainer = document.querySelector('.table-container');
+    if (tableContainer) {
+      tableContainer.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+    window.scrollTo({
       top: 0,
       behavior: 'smooth'
     });
-  }
-  
-  // Cuộn trang lên đầu
-  window.scrollTo({
-    top: 0,
-    behavior: 'smooth'
   });
 }
 
-// Watchers
-watch(searchQuery, () => {
-  currentPage.value = 1;
-});
-
-// Lifecycle
-onMounted(() => {
-  // Lấy thông tin user từ localStorage
-  const userInfo = localStorage.getItem('userInfo');
-  if (userInfo) {
-    const parsed = JSON.parse(userInfo);
-    currentUser.value = parsed.username;
-    loginTime.value = new Date(parsed.loginTime).toLocaleString('vi-VN');
-  }
-  
-  // Tải danh sách users
-  loadUsers();
-});
+// Expose scrollToTop to parent
+defineExpose({ scrollToTop });
 </script>
-
 <style scoped>
-/* Reset cơ bản để đảm bảo bố cục chuẩn */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-/* Root container */
-.user-management {
-  min-height: 100vh; /* Đảm bảo chiều cao tối thiểu full viewport */
-  max-width: 100%; /* Đảm bảo full chiều rộng */
-  margin: 0 auto;
-  padding: 20px;
-  padding-top: 90px; /* Để tránh che khuất bởi header cố định */
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f5f6fa; /* Màu nền nhẹ cho toàn bộ trang */
-}
-
-/* Header */
-.header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 70px; /* Chiều cao header */
-  background: linear-gradient(135deg, #4fc08d, #3a9d6e);
-  color: #ffffff;
-  padding: 0 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 200; /* Luôn nằm trên sidebar */
-  border-radius: 0;
-}
-
-/* Nội dung header */
-.header-content {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  justify-content: space-between;
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 1.8rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-/* User Info */
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.logout-btn {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 0.9rem;
-  transition: background-color 0.3s ease, transform 0.1s ease;
-}
-
-.logout-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-1px);
-}
-
-.toggle-sidebar-btn {
-  background: transparent;
-  border: 1px solid #ffffff;
-  color: #ffffff;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: background-color 0.3s ease, color 0.3s ease, transform 0.1s ease;
-}
-
-.toggle-sidebar-btn:hover {
-  background-color: #ffffff;
-  color: #4fc08d;
-  transform: translateY(-1px);
-}
-
-.icon-menu::before {
-  content: "☰";
-}
-
-.icon-close::before {
-  content: "✕";
-}
-
-/* Sidebar (Dashboard) */
-.sidebar {
-  position: fixed;
-  top: 0; /* Kéo dài từ mép trên cùng */
-  left: 0;
-  width: 250px;
-  height: 100vh; /* Chiếm toàn bộ chiều cao */
-  background: linear-gradient(180deg, #2a2a3f 0%, #1e1e2f 100%); /* Gradient nhẹ */
-  color: #b0b8d1;
-  padding: 20px 15px;
-  overflow-y: auto;
-  border-radius: 0 10px 10px 0;
-  z-index: 100; /* Nằm dưới header */
-  transition: transform 0.3s ease;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-}
-
-.sidebar.hidden {
-  transform: translateX(-100%); /* Ẩn sidebar bằng cách dịch chuyển ra ngoài */
-}
-
-/* Logo */
-.logo {
-  height: 50px;
-  width: auto;
-  object-fit: contain;
-  margin-bottom: 20px;
-  display: block;
-}
-
-/* Menu List */
-.menu-list,
-.menu-list ul {
-  list-style: none;
-  padding-left: 0;
-  margin: 0;
-}
-
-/* Menu Group Title */
-.menu-group-title {
-  text-transform: uppercase;
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 1px;
-  color: #e0f2f1;
-  margin: 15px 0 10px 8px;
-  display: block;
-  opacity: 0.7;
-}
-
-/* Menu Item */
-.menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #e0f2f1;
-  padding: 10px 12px;
-  border-radius: 8px;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color 0.3s ease, color 0.3s ease;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.menu-item:hover {
-  background-color: #3a3f5a;
-  color: #4fc08d;
-}
-
-.menu-item.active {
-  background-color: #4fc08d;
-  color: white;
-}
-
-/* Icon mũi tên ở cuối menu item */
-.icon-chevron-right::before {
-  content: "›";
-  font-weight: bold;
-  color: #4fc08d;
-}
-
-/* Danh sách con menu cách lề trái */
-.menu-group ul li {
-  margin-left: 10px;
-}
-
-/* Main Content */
-.main-content {
-  display: flex;
-  gap: 20px;
-}
-
-/* User List Section */
+ /* UserList.vue */
 .list-content {
   flex: 1;
-  margin-left: 250px; /* Căn lề trái để tránh che khuất sidebar */
+  margin-left: 250px; /* Đồng bộ với sidebar rộng 250px */
   padding: 20px;
-  transition: margin-left 0.3s ease; /* Hiệu ứng chuyển đổi mượt mà */
+  transition: margin-left 0.3s ease;
   background-color: #ffffff;
   border-radius: 10px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
   margin-top: 10px;
-  min-height: calc(100vh - 90px); /* Đảm bảo chiều cao tối thiểu */
+  min-height: calc(100vh - 90px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .list-content.full-width {
-  margin-left: 0; /* Khi sidebar ẩn, căn lề trái về 0 */
+  margin-left: 0;
 }
 
-/* Action Bar */
-.action-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 25px;
-  gap: 20px;
-}
-
-.add-btn {
-  background: #4fc08d;
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-}
-
-.add-btn:hover {
-  background: #3a9d6e;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.add-btn .icon {
-  font-size: 1.2rem;
-  font-weight: bold;
-}
-
-.search-box {
-  flex: 1;
-  max-width: 300px;
-  position: relative;
-}
-
-.search-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e1e5e9;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.3s ease;
-  background-color: #f9fafc;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #4fc08d;
-  background-color: #fff;
-  box-shadow: 0 0 0 3px rgba(79, 192, 141, 0.1);
-}
-
-/* Table */
+/* Bảng */
 .table-container {
   background: white;
   border-radius: 10px;
-  overflow-x: auto; /* Đảm bảo bảng có thể cuộn ngang nếu cần */
+  overflow-x: auto;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   margin-bottom: 25px;
+  max-height: calc(100vh - 90px - 60px);
+  overflow-y: auto;
+  max-width: 1200px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .user-table {
   width: 100%;
-  border-collapse: separate; /* Để hỗ trợ border-spacing */
+  border-collapse: separate;
   border-spacing: 0;
+  table-layout: fixed;
 }
 
 .user-table th {
@@ -953,49 +214,25 @@ onMounted(() => {
 }
 
 .user-table tbody tr:last-child td {
-  border-bottom: none; /* Bỏ đường viền dưới cho hàng cuối */
+  border-bottom: none;
 }
 
-/* Cải thiện hiển thị các cột */
-.user-table th:nth-child(1),
-.user-table td:nth-child(1) {
-  width: 80px; /* Cột ID */
-}
+/* Độ rộng cột */
+.user-table th:nth-child(1), .user-table td:nth-child(1) { width: 80px; }
+.user-table th:nth-child(2), .user-table td:nth-child(2) { width: 200px; }
+.user-table th:nth-child(3), .user-table td:nth-child(3) { width: 250px; }
+.user-table th:nth-child(4), .user-table td:nth-child(4) { width: 150px; }
+.user-table th:nth-child(5), .user-table td:nth-child(5) { width: 150px; }
+.user-table th:nth-child(6), .user-table td:nth-child(6) { width: 150px; }
 
-.user-table th:nth-child(2),
-.user-table td:nth-child(2) {
-  width: 200px; /* Cột Tên */
-}
-
-.user-table th:nth-child(3),
-.user-table td:nth-child(3) {
-  width: 250px; /* Cột Email */
-}
-
-.user-table th:nth-child(4),
-.user-table td:nth-child(4) {
-  width: 150px; /* Cột Số điện thoại */
-}
-
-.user-table th:nth-child(5),
-.user-table td:nth-child(5) {
-  width: 150px; /* Cột Ngày tạo */
-}
-
-.user-table th:nth-child(6),
-.user-table td:nth-child(6) {
-  width: 150px; /* Cột Thao tác */
-}
-
-/* Actions */
+/* Hành động */
 .actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
 }
 
-.edit-btn,
-.delete-btn {
+.edit-btn, .delete-btn {
   padding: 6px 12px;
   border: none;
   border-radius: 4px;
@@ -1025,8 +262,8 @@ onMounted(() => {
   transform: translateY(-1px);
 }
 
-.loading,
-.no-data {
+/* Loading & no-data */
+.loading, .no-data {
   text-align: center;
   padding: 40px;
   color: #666;
@@ -1034,13 +271,17 @@ onMounted(() => {
   font-size: 1rem;
 }
 
-/* Pagination */
+/* Phân trang */
 .pagination {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 10px;
   margin-top: 20px;
+  max-width: 1200px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .page-btn {
@@ -1072,228 +313,35 @@ onMounted(() => {
   font-size: 0.9rem;
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: white;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 25px;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #333;
-  font-size: 1.5rem;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #666;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.close-btn:hover {
-  background: #f8f9fa;
-  color: #333;
-}
-
-/* Form */
-.user-form {
-  padding: 25px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 600;
-  color: #333;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e1e5e9;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.3s ease;
-  background-color: #f9fafc;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #4fc08d;
-  background-color: #fff;
-  box-shadow: 0 0 0 3px rgba(79, 192, 141, 0.1);
-}
-
-.form-group input.error {
-  border-color: #dc3545;
-}
-
-.error-message {
-  color: #dc3545;
-  font-size: 0.9rem;
-  margin-top: 5px;
-  display: block;
-}
-
-/* Form Actions */
-.form-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 30px;
-}
-
-.cancel-btn,
-.submit-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s ease, transform 0.1s ease;
-}
-
-.cancel-btn {
-  background: #6c757d;
-  color: white;
-}
-
-.cancel-btn:hover {
-  background: #5a6268;
-  transform: translateY(-1px);
-}
-
-.submit-btn {
-  background: #4fc08d;
-  color: white;
-}
-
-.submit-btn:hover:not(:disabled) {
-  background: #3a9d6e;
-  transform: translateY(-1px);
-}
-
-.submit-btn:disabled {
-  background: #bdc3c7;
-  cursor: not-allowed;
-}
-
 /* Responsive */
 @media (max-width: 768px) {
-  .user-management {
-    padding: 10px;
-    padding-top: 100px; /* Tăng padding-top trên mobile để tránh header */
-  }
-
-  .header {
-    height: 60px;
-    padding: 0 15px;
-  }
-
-  .header-content {
-    flex-direction: column;
-    gap: 10px;
-    text-align: center;
-  }
-
-  .header h1 {
-    font-size: 1.5rem;
-  }
-
-  .user-info {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .sidebar {
-    position: static; /* Bỏ fixed trên mobile */
-    width: 100%;
-    height: auto;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    top: 0; /* Không cần top trên mobile */
-  }
-
-  .sidebar.hidden {
-    display: none; /* Ẩn hoàn toàn trên mobile */
-  }
-
   .list-content {
-    margin-left: 0; /* Không cần margin trên mobile */
+    margin-left: 0;
     padding: 15px;
   }
 
-  .action-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 15px;
-  }
-
-  .search-box {
-    max-width: none;
+  .table-container {
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .user-table {
     font-size: 0.9rem;
+    table-layout: auto;
   }
 
-  .user-table th,
-  .user-table td {
+  .user-table th, .user-table td {
     padding: 8px 6px;
   }
 
-  .user-table th:nth-child(1),
-  .user-table td:nth-child(1),
-  .user-table th:nth-child(2),
-  .user-table td:nth-child(2),
-  .user-table th:nth-child(3),
-  .user-table td:nth-child(3),
-  .user-table th:nth-child(4),
-  .user-table td:nth-child(4),
-  .user-table th:nth-child(5),
-  .user-table td:nth-child(5),
-  .user-table th:nth-child(6),
-  .user-table td:nth-child(6) {
-    width: auto; /* Bỏ chiều rộng cố định trên mobile */
+  .user-table th:nth-child(1), .user-table td:nth-child(1),
+  .user-table th:nth-child(2), .user-table td:nth-child(2),
+  .user-table th:nth-child(3), .user-table td:nth-child(3),
+  .user-table th:nth-child(4), .user-table td:nth-child(4),
+  .user-table th:nth-child(5), .user-table td:nth-child(5),
+  .user-table th:nth-child(6), .user-table td:nth-child(6) {
+    width: auto;
   }
 
   .actions {
@@ -1301,13 +349,10 @@ onMounted(() => {
     gap: 4px;
   }
 
-  .modal {
-    width: 95%;
-    margin: 10px;
-  }
-
-  .form-actions {
-    flex-direction: column;
+  .pagination {
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
 }
 </style>

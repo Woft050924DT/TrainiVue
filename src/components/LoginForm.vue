@@ -1,43 +1,40 @@
 <template>
-    <div class="login-container">
-        <header>
-            <h1>{{ text }}</h1>
-        </header>
+  <div class="login-container">
+    <header>
+      <h1>{{ text }}</h1>
+    </header>
 
-        <form @submit.prevent="handleSubmit" class="login-form">
-            <div class="form-group">
-                <label for="username">Email</label>
-                <input type="text" id="username" v-model="username" required/>
-            </div>
+    <form @submit.prevent="handleSubmit" class="login-form">
+      <div class="form-group">
+        <label for="username">Email</label>
+        <input type="text" id="username" v-model="username" required />
+      </div>
 
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" v-model="password" required/>
-            </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" v-model="password" required />
+      </div>
 
-            <div class="checkbox-group">
-                <input type="checkbox" id="remember" v-model="rememberMe"/>
-                <label for="remember">Remember me</label>
-            </div>
-           
-            <button type="submit" :disabled="isLoading">
-              {{ isLoading ? 'Đang đăng nhập...':'Login' }}
-            </button>
+      <div class="checkbox-group">
+        <input type="checkbox" id="remember" v-model="rememberMe" />
+        <label for="remember">Remember me</label>
+      </div>
 
-            <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-        </form>
-    </div>
+      <button type="submit" :disabled="isLoading">
+        {{ isLoading ? 'Đang đăng nhập...' : 'Login' }}
+      </button>
+
+      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+    </form>
+  </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, defineEmits } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, watch } from 'vue';
+import { defineEmits } from 'vue';
 
-// Lấy instance để phát sự kiện (emit)
 const emit = defineEmits(['login-success']);
-const router = useRouter();
 
-// State phản ứng (reactive)
 const text = ref('Login Form');
 const username = ref('');
 const password = ref('');
@@ -45,13 +42,11 @@ const rememberMe = ref(false);
 const errorMessage = ref('');
 const isLoading = ref(false);
 
-// Hàm kiểm tra định dạng email hợp lệ
 function isValidEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
 
-// Các hàm xử lý
 function resetForm() {
   username.value = '';
   password.value = '';
@@ -60,65 +55,34 @@ function resetForm() {
 }
 
 function onLoginSuccess() {
-  console.log('Đăng nhập thành công!');
- 
-  if (rememberMe.value) {
-    console.log('Chức năng nhớ đăng nhập được bật');
-    localStorage.setItem('rememberMe', 'true');
-  }
- 
-  // Lưu token/session vào localStorage
-  localStorage.setItem('isLoggedIn', 'true');
-  localStorage.setItem('userInfo', JSON.stringify({
-    username: username.value,
-    loginTime: new Date().toISOString()
-  }));
- 
-  // Emit event cho parent component (nếu cần)
   emit('login-success', {
     username: username.value,
-    rememberMe: rememberMe.value
+    rememberMe: rememberMe.value,
   });
- 
   resetForm();
- 
-  // Chuyển hướng sang UserList
-  router.push('/users');
 }
 
 async function performLogin() {
   try {
-    // Giả lập delay khi gọi API
-    await new Promise(resolve => setTimeout(resolve, 1500));
-   
-    const loginData = {
-      username: username.value,
-      password: password.value,
-      rememberMe: rememberMe.value
-    };
-   
-    console.log('Dữ liệu đăng nhập:', loginData);
-   
-    // Kiểm tra nhiều tài khoản hợp lệ - FIX: Đổi từ cred.email thành cred.username
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
     const validCredentials = [
       { username: 'admin@example.com', password: 'password' },
       { username: 'htdat2711@gmail.com', password: '2711dt.com' },
-      { username: 'adminexample@gmail.com', password: 'password' }
+      { username: 'adminexample@gmail.com', password: 'password' },
     ];
-   
-    // FIX: So sánh đúng field username
+
     const isValid = validCredentials.some(
-      cred => cred.username === username.value && cred.password === password.value
+      (cred) => cred.username === username.value && cred.password === password.value
     );
-   
+
     if (isValid) {
       onLoginSuccess();
     } else {
       errorMessage.value = 'Email hoặc mật khẩu không đúng';
     }
-  } catch (error) {
+  } catch {
     errorMessage.value = 'Đăng nhập thất bại. Vui lòng thử lại.';
-    console.error('Lỗi đăng nhập:', error);
   } finally {
     isLoading.value = false;
   }
@@ -144,18 +108,8 @@ function handleSubmit() {
   performLogin();
 }
 
-// Theo dõi sự thay đổi của username và password để xóa lỗi
-watch(username, () => {
+watch([username, password], () => {
   if (errorMessage.value) errorMessage.value = '';
-});
-watch(password, () => {
-  if (errorMessage.value) errorMessage.value = '';
-});
-
-// Tự động focus vào ô input đầu tiên khi mount
-onMounted(() => {
-  const firstInput = document.querySelector('input[type="text"]');
-  if (firstInput) firstInput.focus();
 });
 </script>
 
