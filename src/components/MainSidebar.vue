@@ -2,6 +2,10 @@
   <div>
     <!-- Header -->
     <header class="header">
+      <div class="logo">
+        <img src="https://gpos-cms.dev.g-pay.vn/media/logos/logo.svg" alt="Logo" class="logo-img" />
+        
+      </div>
       <div class="header-content">
         <button @click="toggleSidebar" class="toggle-sidebar-btn">
           <i :class="isSidebarVisible ? 'icon-close' : 'icon-menu'"></i>

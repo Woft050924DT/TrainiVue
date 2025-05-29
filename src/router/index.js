@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '@/views/LoginPage.vue'
-import UserManager from '@/components/UserManager.vue'
+import UserAction from '@/components/UserAction.vue'
 const routes = [
   {
     path: '/',
@@ -17,7 +17,7 @@ const routes = [
   {
     path: '/users',
     name: 'UserList',
-    component: UserManager,
+    component: UserAction,
     meta: {
       requiresAuth: true
     }

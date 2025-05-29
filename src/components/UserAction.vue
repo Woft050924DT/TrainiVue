@@ -1,16 +1,22 @@
 <template>
-  <div class="action-bar">
-    <button @click="showAddFormLocal" class="add-btn">
-      <span class="icon">+</span>
-      Thêm User
-    </button>
-    <div class="search-box">
-      <input
-        type="text"
-        v-model="localSearchQuery"
-        placeholder="Tìm kiếm user..."
-        class="search-input"
-      />
+  <div>
+    <!-- MainSidebar -->
+    <MainSidebar :current-user="currentUser" @logout="logout" />
+
+    <!-- Action bar -->
+    <div class="action-bar">
+      <button @click="showAddForm = true" class="add-btn">
+        <span class="icon">+</span>
+        Thêm User
+      </button>
+      <div class="search-box">
+        <input
+          type="text"
+          v-model="searchQuery"
+          placeholder="Tìm kiếm user..."
+          class="search-input"
+        />
+      </div>
     </div>
 
     <!-- Modal Add/Edit User -->
@@ -20,47 +26,40 @@
           <h3>{{ showAddForm ? 'Thêm User Mới' : 'Chỉnh sửa User' }}</h3>
           <button @click="closeModal" class="close-btn">×</button>
         </div>
-
-        <form @submit.prevent="submitForm" class="user-form" novalidate>
+        <form @submit.prevent="submitForm" class="user-form">
           <div class="form-group">
             <label for="name">Tên *</label>
             <input
-              id="name"
               type="text"
+              id="name"
               v-model="formData.name"
               :class="{ error: errors.name }"
               required
-              autocomplete="off"
             />
             <span v-if="errors.name" class="error-message">{{ errors.name }}</span>
           </div>
-
           <div class="form-group">
             <label for="email">Email *</label>
             <input
-              id="email"
               type="email"
+              id="email"
               v-model="formData.email"
               :class="{ error: errors.email }"
               required
-              autocomplete="off"
             />
             <span v-if="errors.email" class="error-message">{{ errors.email }}</span>
           </div>
-
           <div class="form-group">
             <label for="phone">Số điện thoại *</label>
             <input
-              id="phone"
               type="tel"
+              id="phone"
               v-model="formData.phone"
               :class="{ error: errors.phone }"
               required
-              autocomplete="off"
             />
             <span v-if="errors.phone" class="error-message">{{ errors.phone }}</span>
           </div>
-
           <div class="form-actions">
             <button type="button" @click="closeModal" class="cancel-btn">Hủy</button>
             <button type="submit" :disabled="isSubmitting" class="submit-btn">
@@ -70,70 +69,348 @@
         </form>
       </div>
     </div>
+
+    <!-- UserList -->
+    <UserList
+      :is-sidebar-visible="isSidebarVisible"
+      :is-loading="isLoading"
+      :filtered-users="filteredUsers"
+      :paginated-users="paginatedUsers"
+      :total-pages="totalPages"
+      :current-page="currentPage"
+      @update:current-page="currentPage = $event"
+      @edit-user="editUser"
+      @delete-user="deleteUser"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
+import Swal from 'sweetalert2';
+import MainSidebar from './MainSidebar.vue';
+import UserList from './UserList.vue';
 
-const props = defineProps({
-  showAddForm: Boolean,
-  showEditForm: Boolean,
-  isSubmitting: Boolean,
-  formData: Object,
-  errors: Object,
+const router = useRouter();
+
+// State Management
+const users = ref([]);
+const isLoading = ref(false);
+const searchQuery = ref('');
+const currentPage = ref(1);
+const itemsPerPage = ref(5);
+const currentUser = ref('');
+const loginTime = ref('');
+const isSidebarVisible = ref(true);
+
+// Modal states
+const showAddForm = ref(false);
+const showEditForm = ref(false);
+const isSubmitting = ref(false);
+const editingUserId = ref(null);
+
+// Form data
+const formData = ref({
+  name: '',
+  email: '',
+  phone: ''
 });
 
-const emit = defineEmits([
-  'update:showAddForm',
-  'update:showEditForm',
-  'submit-form',
-  'update:formData',
-  'update:errors',
-  'search-change',
-]);
+// Validation errors
+const errors = ref({});
 
-const localSearchQuery = ref('');
-
-// Đồng bộ v-model:formData (dùng trực tiếp prop formData)
-// Không cần localFormData nữa, đồng bộ trực tiếp.
-// Vue 3 tự xử lý binding 2 chiều.
-
-// Watch localSearchQuery gửi event search-change
-watch(localSearchQuery, (val) => {
-  emit('search-change', val);
+// Computed properties
+const filteredUsers = computed(() => {
+  if (!searchQuery.value) return users.value;
+  const query = searchQuery.value.toLowerCase();
+  return users.value.filter(user =>
+    user.name.toLowerCase().includes(query) ||
+    user.email.toLowerCase().includes(query) ||
+    user.phone.includes(query)
+  );
 });
 
-function showAddFormLocal() {
-  emit('update:showAddForm', true);
+const totalPages = computed(() => {
+  return Math.ceil(filteredUsers.value.length / itemsPerPage.value);
+});
+
+const paginatedUsers = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredUsers.value.slice(start, end);
+});
+
+// Methods
+function validateForm() {
+  errors.value = {};
+  if (!formData.value.name.trim()) {
+    errors.value.name = 'Tên không được để trống';
+  }
+  if (!formData.value.email.trim()) {
+    errors.value.email = 'Email không được để trống';
+  } else if (!isValidEmail(formData.value.email)) {
+    errors.value.email = 'Email không đúng định dạng';
+  }
+  if (!formData.value.phone.trim()) {
+    errors.value.phone = 'Số điện thoại không được để trống';
+  } else if (!isValidPhone(formData.value.phone)) {
+    errors.value.phone = 'Số điện thoại không đúng định dạng';
+  }
+  return Object.keys(errors.value).length === 0;
+}
+
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function isValidPhone(phone) {
+  const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8,9})$/;
+  return phoneRegex.test(phone);
+}
+
+function resetForm() {
+  formData.value = { name: '', email: '', phone: '' };
+  errors.value = {};
+  editingUserId.value = null;
 }
 
 function closeModal() {
-  emit('update:showAddForm', false);
-  emit('update:showEditForm', false);
-  emit('update:formData', { name: '', email: '', phone: '' });
-  emit('update:errors', {});
+  showAddForm.value = false;
+  showEditForm.value = false;
+  resetForm();
 }
 
-function submitForm() {
-  emit('submit-form');
+async function submitForm() {
+  if (!validateForm()) return;
+  isSubmitting.value = true;
+  try {
+    if (showAddForm.value) {
+      await addUser();
+    } else {
+      await updateUser();
+    }
+    closeModal();
+    await Swal.fire({
+      icon: 'success',
+      title: 'Thành công!',
+      text: showAddForm.value ? 'Thêm user thành công!' : 'Cập nhật user thành công!',
+      timer: 1500,
+      showConfirmButton: false
+    });
+  } catch (error) {
+    console.error('Lỗi khi lưu user:', error);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Lỗi!',
+      text: 'Có lỗi xảy ra khi lưu dữ liệu',
+      confirmButtonText: 'OK'
+    });
+  } finally {
+    isSubmitting.value = false;
+  }
 }
+
+async function loadUsers() {
+  isLoading.value = true;
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    users.value = [
+      {
+        id: 1,
+        name: 'Nguyễn Văn A',
+        email: 'nguyenvana@example.com',
+        phone: '0123456789',
+        createdAt: '2024-01-15T10:30:00Z'
+      },
+      {
+        id: 2,
+        name: 'Trần Thị B',
+        email: 'tranthib@example.com',
+        phone: '0987654321',
+        createdAt: '2024-01-16T14:20:00Z'
+      },
+      {
+        id: 3,
+        name: 'Lê Văn C',
+        email: 'levanc@example.com',
+        phone: '0369258147',
+        createdAt: '2024-01-17T09:15:00Z'
+      },
+      {
+        id: 4,
+        name: 'Phạm Thị D',
+        email: 'phamthid@example.com',
+        phone: '0741852963',
+        createdAt: '2024-01-18T16:45:00Z'
+      },
+      {
+        id: 5,
+        name: 'Hoàng Văn E',
+        email: 'hoangvane@example.com',
+        phone: '0582639741',
+        createdAt: '2024-01-19T11:30:00Z'
+      },
+      {
+        id: 6,
+        name: 'Hà Thành Đạt',
+        email: 'htdat2711@gmail.com',
+        phone: '0987654321',
+        createdAt: '2024-01-20T12:00:00Z'
+      }
+    ];
+  } catch (error) {
+    console.error('Lỗi khi tải danh sách user:', error);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Lỗi!',
+      text: 'Lỗi khi tải danh sách user',
+      confirmButtonText: 'OK'
+    });
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function addUser() {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  const newUser = {
+    id: Date.now(),
+    ...formData.value,
+    createdAt: new Date().toISOString()
+  };
+  users.value.unshift(newUser);
+  currentPage.value = 1;
+  searchQuery.value = '';
+  await nextTick();
+  scrollToTop();
+}
+
+async function updateUser() {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  const index = users.value.findIndex(u => u.id === editingUserId.value);
+  if (index !== -1) {
+    users.value[index] = {
+      ...users.value[index],
+      ...formData.value
+    };
+  }
+}
+
+function editUser(user) {
+  formData.value = {
+    name: user.name,
+    email: user.email,
+    phone: user.phone
+  };
+  editingUserId.value = user.id;
+  showEditForm.value = true;
+}
+
+async function deleteUser(userId) {
+  const result = await Swal.fire({
+    title: 'Xác nhận xóa',
+    text: 'Bạn có chắc chắn muốn xóa user này?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Xóa',
+    cancelButtonText: 'Hủy'
+  });
+  if (!result.isConfirmed) return;
+  try {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    users.value = users.value.filter(u => u.id !== userId);
+    await Swal.fire({
+      icon: 'success',
+      title: 'Thành công!',
+      text: 'Xóa user thành công!',
+      timer: 1500,
+      showConfirmButton: false
+    });
+    if (paginatedUsers.value.length === 0 && currentPage.value > 1) {
+      currentPage.value--;
+    }
+  } catch (error) {
+    console.error('Lỗi khi xóa user:', error);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Lỗi!',
+      text: 'Có lỗi xảy ra khi xóa user',
+      confirmButtonText: 'OK'
+    });
+  }
+}
+
+async function logout() {
+  const result = await Swal.fire({
+    title: 'Xác nhận đăng xuất',
+    text: 'Bạn có chắc chắn muốn đăng xuất?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#4fc08d',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Đăng xuất',
+    cancelButtonText: 'Hủy'
+  });
+  if (result.isConfirmed) {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userInfo');
+    localStorage.removeItem('rememberMe');
+    await Swal.fire({
+      icon: 'success',
+      title: 'Thành công!',
+      text: 'Đăng xuất thành công!',
+      timer: 1500,
+      showConfirmButton: false
+    });
+    router.push('/login');
+  }
+}
+
+function scrollToTop() {
+  const tableContainer = document.querySelector('.table-container');
+  if (tableContainer) {
+    tableContainer.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
+
+// Watchers
+watch(searchQuery, () => {
+  currentPage.value = 1;
+});
+
+// Lifecycle
+onMounted(() => {
+  const userInfo = localStorage.getItem('userInfo');
+  if (userInfo) {
+    const parsed = JSON.parse(userInfo);
+    currentUser.value = parsed.username;
+    loginTime.value = new Date(parsed.loginTime).toLocaleString('vi-VN');
+  }
+  loadUsers();
+});
 </script>
 
 <style scoped>
-/* UserAction.vue */
 .action-bar {
-  position: sticky;
-  top: 90px; /* Dưới header 70px + 20px padding */
-  z-index: 150;
-  background-color: white;
-  padding: 12px 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border-radius: 8px 8px 0 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 10px;
   gap: 20px;
+  margin-left: 270px;
+  margin-right: 20px;
+  margin-top: 90px;
 }
 
 .add-btn {
@@ -184,7 +461,6 @@ function submitForm() {
   box-shadow: 0 0 0 3px rgba(79, 192, 141, 0.1);
 }
 
-/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -292,7 +568,8 @@ function submitForm() {
   margin-top: 30px;
 }
 
-.cancel-btn, .submit-btn {
+.cancel-btn,
+.submit-btn {
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
@@ -326,12 +603,12 @@ function submitForm() {
   cursor: not-allowed;
 }
 
-/* Responsive */
 @media (max-width: 768px) {
   .action-bar {
     flex-direction: column;
     align-items: stretch;
     gap: 15px;
+    margin-left: 20px;
   }
 
   .search-box {
