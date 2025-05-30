@@ -53,11 +53,12 @@
           <span class="menu-group-title">QUẢN LÝ GIAO DỊCH</span>
           <ul>
             <li>
-              <router-link to="/transactions" class="menu-item" active-class="active">
+             <router-link to="/product-list" class="menu-item" active-class="active">
                 <i class="icon-transaction"></i>
-                Danh sách giao dịch
-                <i class="icon-chevron-right"></i>
+               Danh Mục Sản Phẩm
+               <i class="icon-chevron-right"></i>
               </router-link>
+              
             </li>
           </ul>
         </li>

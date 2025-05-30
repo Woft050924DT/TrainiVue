@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '@/views/LoginPage.vue'
 import UserAction from '@/service/UserAction.vue'
+import ProductList from '../components/ProducList.vue'
 const routes = [
   {
     path: '/',
@@ -22,6 +23,13 @@ const routes = [
       requiresAuth: true
     }
   },
+
+  {
+  path: '/dashboard',
+  name: 'ProductList',
+  component: ProductList, // import component tương ứng
+  },
+
   {
     path: '/:pathMatch(.*)*',
     redirect: '/login'

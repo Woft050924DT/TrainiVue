@@ -88,30 +88,32 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
 import Swal from 'sweetalert2';
 import * as yup from 'yup';
-import {useField, useForm } from 'vee-validate';
-import {reactive} from 'vue';
+import { useField, useForm } from 'vee-validate';
 
 import MainSidebar from '../components/MainSidebar.vue';
 import UserList from '../components/UserList.vue';
 
 const router = useRouter();
+const store = useStore();
 
-// State quản lý
-const users = ref([]);
-const isLoading = ref(false);
+// State quản lý UI
 const searchQuery = ref('');
 const currentPage = ref(1);
 const itemsPerPage = ref(5);
-const currentUser = ref('');
-const loginTime = ref('');
 const isSidebarVisible = ref(true);
 
 const showAddForm = ref(false);
 const showEditForm = ref(false);
 const isSubmitting = ref(false);
 const editingUserId = ref(null);
+
+// Computed properties lấy data từ Vuex store
+const users = computed(() => store.state.users);
+const isLoading = computed(() => store.state.isLoading);
+const currentUser = computed(() => store.state.currentUser);
 
 // Định nghĩa schema validation yup
 const schema = yup.object({
@@ -123,7 +125,7 @@ const schema = yup.object({
 });
 
 // Khởi tạo vee-validate useForm
-const { handleSubmit, errors, resetForm, validate, setValues} = useForm({
+const { handleSubmit, errors, resetForm, setValues } = useForm({
   validationSchema: schema,
 });
 
@@ -131,25 +133,9 @@ const { value: name } = useField('name');
 const { value: email } = useField('email');
 const { value: phone } = useField('phone');
 
-const formData = reactive({
-  name: '',
-  email: '',
-  phone: '',
-});
-
-watch(formData, () => {
-  validate();
-}, { deep: true });
-
-// Computed properties lọc và phân trang
+// Computed properties lọc và phân trang sử dụng Vuex getter
 const filteredUsers = computed(() => {
-  if (!searchQuery.value) return users.value;
-  const query = searchQuery.value.toLowerCase();
-  return users.value.filter(user =>
-    user.name.toLowerCase().includes(query) ||
-    user.email.toLowerCase().includes(query) ||
-    user.phone.includes(query)
-  );
+  return store.getters.usersFiltered(searchQuery.value);
 });
 
 const totalPages = computed(() => {
@@ -170,9 +156,8 @@ function editUser(user) {
     name: user.name,
     email: user.email,
     phone: user.phone,
-  })
+  });
 }
-
 
 function resetAll() {
   resetForm({
@@ -191,37 +176,34 @@ function closeModal() {
   resetAll();
 }
 
-// Thêm user mới
+// Thêm user mới sử dụng Vuex action
 async function addUser(values) {
-  await new Promise(resolve => setTimeout(resolve, 1000)); // giả lập delay
   const newUser = {
-  id: Date.now(),
-  name: values.name,
-  email: values.email,
-  phone: values.phone,
-  createdAt: new Date().toISOString(),
-};
+    id: Date.now(),
+    name: values.name,
+    email: values.email,
+    phone: values.phone,
+    createdAt: new Date().toISOString(),
+  };
 
-  users.value.unshift(newUser);
+  await store.dispatch('addUser', newUser);
   currentPage.value = 1;
   searchQuery.value = '';
   await nextTick();
   scrollToTop();
 }
 
-// Cập nhật user hiện tại
+// Cập nhật user hiện tại sử dụng Vuex action
 async function updateUser(values) {
-  await new Promise(resolve => setTimeout(resolve, 1000)); // giả lập delay
-  const index = users.value.findIndex(u => u.id === editingUserId.value);
-  if (index !== -1) {
-    users.value[index] = {
-  ...users.value[index],
-  name: values.name,
-  email: values.email,
-  phone: values.phone,
-};
+  const updatedUser = {
+    id: editingUserId.value,
+    name: values.name,
+    email: values.email,
+    phone: values.phone,
+    createdAt: users.value.find(u => u.id === editingUserId.value)?.createdAt || new Date().toISOString(),
+  };
 
-  }
+  await store.dispatch('updateUser', updatedUser);
 }
 
 // Xử lý submit form, chỉ chạy khi form hợp lệ
@@ -254,20 +236,10 @@ const onSubmit = handleSubmit(async (values) => {
   }
 });
 
-
-// Load danh sách user mẫu
+// Load danh sách user sử dụng Vuex action
 async function loadUsers() {
-  isLoading.value = true;
   try {
-    await new Promise(resolve => setTimeout(resolve, 1000)); // giả lập delay
-    users.value = [
-      { id: 1, name: 'Nguyễn Văn A', email: 'nguyenvana@example.com', phone: '0123456789', createdAt: '2024-01-15T10:30:00Z' },
-      { id: 2, name: 'Trần Thị B', email: 'tranthib@example.com', phone: '0987654321', createdAt: '2024-01-16T14:20:00Z' },
-      { id: 3, name: 'Lê Văn C', email: 'levanc@example.com', phone: '0369258147', createdAt: '2024-01-17T09:15:00Z' },
-      { id: 4, name: 'Phạm Thị D', email: 'phamthid@example.com', phone: '0741852963', createdAt: '2024-01-18T16:45:00Z' },
-      { id: 5, name: 'Hoàng Văn E', email: 'hoangvane@example.com', phone: '0582639741', createdAt: '2024-01-19T11:30:00Z' },
-      { id: 6, name: 'Hà Thành Đạt', email: 'htdat2711@gmail.com', phone: '0987654321', createdAt: '2024-01-20T12:00:00Z' },
-    ];
+    await store.dispatch('loadUsers');
   } catch (error) {
     console.error('Lỗi khi tải danh sách user:', error);
     await Swal.fire({
@@ -276,12 +248,10 @@ async function loadUsers() {
       text: 'Lỗi khi tải danh sách user',
       confirmButtonText: 'OK',
     });
-  } finally {
-    isLoading.value = false;
   }
 }
 
-// Xóa user
+// Xóa user sử dụng Vuex action
 async function deleteUser(userId) {
   const result = await Swal.fire({
     title: 'Xác nhận xóa',
@@ -296,8 +266,7 @@ async function deleteUser(userId) {
   if (!result.isConfirmed) return;
 
   try {
-    await new Promise(resolve => setTimeout(resolve, 500)); // giả lập delay
-    users.value = users.value.filter(u => u.id !== userId);
+    await store.dispatch('deleteUser', userId);
     await Swal.fire({
       icon: 'success',
       title: 'Thành công!',
@@ -305,6 +274,7 @@ async function deleteUser(userId) {
       timer: 1500,
       showConfirmButton: false,
     });
+    // Điều chỉnh trang hiện tại nếu cần
     if (paginatedUsers.value.length === 0 && currentPage.value > 1) {
       currentPage.value--;
     }
@@ -371,8 +341,8 @@ onMounted(() => {
   const userInfo = localStorage.getItem('userInfo');
   if (userInfo) {
     const parsed = JSON.parse(userInfo);
-    currentUser.value = parsed.username;
-    loginTime.value = new Date(parsed.loginTime).toLocaleString('vi-VN');
+    store.commit('setCurrentUser', parsed.username);
+    store.commit('setLoginTime', new Date(parsed.loginTime).toLocaleString('vi-VN'));
   }
   loadUsers();
 });
