@@ -26,13 +26,13 @@
           <h3>{{ showAddForm ? 'Thêm User Mới' : 'Chỉnh sửa User' }}</h3>
           <button @click="closeModal" class="close-btn">×</button>
         </div>
-        <form @submit.prevent="submitForm" class="user-form">
+        <form @submit.prevent="onSubmit" class="user-form" novalidate>
           <div class="form-group">
             <label for="name">Tên *</label>
             <input
               type="text"
               id="name"
-              v-model="formData.name"
+              v-model="name"
               :class="{ error: errors.name }"
               required
             />
@@ -43,7 +43,7 @@
             <input
               type="email"
               id="email"
-              v-model="formData.email"
+              v-model="email"
               :class="{ error: errors.email }"
               required
             />
@@ -54,7 +54,7 @@
             <input
               type="tel"
               id="phone"
-              v-model="formData.phone"
+              v-model="phone"
               :class="{ error: errors.phone }"
               required
             />
@@ -89,12 +89,16 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import Swal from 'sweetalert2';
-import MainSidebar from './MainSidebar.vue';
-import UserList from './UserList.vue';
+import * as yup from 'yup';
+import {useField, useForm } from 'vee-validate';
+import {reactive} from 'vue';
+
+import MainSidebar from '../components/MainSidebar.vue';
+import UserList from '../components/UserList.vue';
 
 const router = useRouter();
 
-// State Management
+// State quản lý
 const users = ref([]);
 const isLoading = ref(false);
 const searchQuery = ref('');
@@ -104,23 +108,40 @@ const currentUser = ref('');
 const loginTime = ref('');
 const isSidebarVisible = ref(true);
 
-// Modal states
 const showAddForm = ref(false);
 const showEditForm = ref(false);
 const isSubmitting = ref(false);
 const editingUserId = ref(null);
 
-// Form data
-const formData = ref({
-  name: '',
-  email: '',
-  phone: ''
+// Định nghĩa schema validation yup
+const schema = yup.object({
+  name: yup.string().required('Tên không được để trống'),
+  email: yup.string().required('Email không được để trống').email('Email không đúng định dạng'),
+  phone: yup.string()
+    .required('Số điện thoại không được để trống')
+    .matches(/^(0[3|5|7|8|9])+([0-9]{8,9})$/, 'Số điện thoại không đúng định dạng'),
 });
 
-// Validation errors
-const errors = ref({});
+// Khởi tạo vee-validate useForm
+const { handleSubmit, errors, resetForm, validate, setValues} = useForm({
+  validationSchema: schema,
+});
 
-// Computed properties
+const { value: name } = useField('name');
+const { value: email } = useField('email');
+const { value: phone } = useField('phone');
+
+const formData = reactive({
+  name: '',
+  email: '',
+  phone: '',
+});
+
+watch(formData, () => {
+  validate();
+}, { deep: true });
+
+// Computed properties lọc và phân trang
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return users.value;
   const query = searchQuery.value.toLowerCase();
@@ -141,145 +162,46 @@ const paginatedUsers = computed(() => {
   return filteredUsers.value.slice(start, end);
 });
 
-// Methods
-function validateForm() {
-  errors.value = {};
-  if (!formData.value.name.trim()) {
-    errors.value.name = 'Tên không được để trống';
-  }
-  if (!formData.value.email.trim()) {
-    errors.value.email = 'Email không được để trống';
-  } else if (!isValidEmail(formData.value.email)) {
-    errors.value.email = 'Email không đúng định dạng';
-  }
-  if (!formData.value.phone.trim()) {
-    errors.value.phone = 'Số điện thoại không được để trống';
-  } else if (!isValidPhone(formData.value.phone)) {
-    errors.value.phone = 'Số điện thoại không đúng định dạng';
-  }
-  return Object.keys(errors.value).length === 0;
+function editUser(user) {
+  showAddForm.value = false;
+  showEditForm.value = true;
+  editingUserId.value = user.id;
+  setValues({
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+  })
 }
 
-function isValidEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
 
-function isValidPhone(phone) {
-  const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8,9})$/;
-  return phoneRegex.test(phone);
-}
-
-function resetForm() {
-  formData.value = { name: '', email: '', phone: '' };
-  errors.value = {};
+function resetAll() {
+  resetForm({
+    values: {
+      name: '',
+      email: '',
+      phone: '',
+    },
+  });
   editingUserId.value = null;
 }
 
 function closeModal() {
   showAddForm.value = false;
   showEditForm.value = false;
-  resetForm();
+  resetAll();
 }
 
-async function submitForm() {
-  if (!validateForm()) return;
-  isSubmitting.value = true;
-  try {
-    if (showAddForm.value) {
-      await addUser();
-    } else {
-      await updateUser();
-    }
-    closeModal();
-    await Swal.fire({
-      icon: 'success',
-      title: 'Thành công!',
-      text: showAddForm.value ? 'Thêm user thành công!' : 'Cập nhật user thành công!',
-      timer: 1500,
-      showConfirmButton: false
-    });
-  } catch (error) {
-    console.error('Lỗi khi lưu user:', error);
-    await Swal.fire({
-      icon: 'error',
-      title: 'Lỗi!',
-      text: 'Có lỗi xảy ra khi lưu dữ liệu',
-      confirmButtonText: 'OK'
-    });
-  } finally {
-    isSubmitting.value = false;
-  }
-}
-
-async function loadUsers() {
-  isLoading.value = true;
-  try {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    users.value = [
-      {
-        id: 1,
-        name: 'Nguyễn Văn A',
-        email: 'nguyenvana@example.com',
-        phone: '0123456789',
-        createdAt: '2024-01-15T10:30:00Z'
-      },
-      {
-        id: 2,
-        name: 'Trần Thị B',
-        email: 'tranthib@example.com',
-        phone: '0987654321',
-        createdAt: '2024-01-16T14:20:00Z'
-      },
-      {
-        id: 3,
-        name: 'Lê Văn C',
-        email: 'levanc@example.com',
-        phone: '0369258147',
-        createdAt: '2024-01-17T09:15:00Z'
-      },
-      {
-        id: 4,
-        name: 'Phạm Thị D',
-        email: 'phamthid@example.com',
-        phone: '0741852963',
-        createdAt: '2024-01-18T16:45:00Z'
-      },
-      {
-        id: 5,
-        name: 'Hoàng Văn E',
-        email: 'hoangvane@example.com',
-        phone: '0582639741',
-        createdAt: '2024-01-19T11:30:00Z'
-      },
-      {
-        id: 6,
-        name: 'Hà Thành Đạt',
-        email: 'htdat2711@gmail.com',
-        phone: '0987654321',
-        createdAt: '2024-01-20T12:00:00Z'
-      }
-    ];
-  } catch (error) {
-    console.error('Lỗi khi tải danh sách user:', error);
-    await Swal.fire({
-      icon: 'error',
-      title: 'Lỗi!',
-      text: 'Lỗi khi tải danh sách user',
-      confirmButtonText: 'OK'
-    });
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-async function addUser() {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+// Thêm user mới
+async function addUser(values) {
+  await new Promise(resolve => setTimeout(resolve, 1000)); // giả lập delay
   const newUser = {
-    id: Date.now(),
-    ...formData.value,
-    createdAt: new Date().toISOString()
-  };
+  id: Date.now(),
+  name: values.name,
+  email: values.email,
+  phone: values.phone,
+  createdAt: new Date().toISOString(),
+};
+
   users.value.unshift(newUser);
   currentPage.value = 1;
   searchQuery.value = '';
@@ -287,27 +209,79 @@ async function addUser() {
   scrollToTop();
 }
 
-async function updateUser() {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+// Cập nhật user hiện tại
+async function updateUser(values) {
+  await new Promise(resolve => setTimeout(resolve, 1000)); // giả lập delay
   const index = users.value.findIndex(u => u.id === editingUserId.value);
   if (index !== -1) {
     users.value[index] = {
-      ...users.value[index],
-      ...formData.value
-    };
+  ...users.value[index],
+  name: values.name,
+  email: values.email,
+  phone: values.phone,
+};
+
   }
 }
 
-function editUser(user) {
-  formData.value = {
-    name: user.name,
-    email: user.email,
-    phone: user.phone
-  };
-  editingUserId.value = user.id;
-  showEditForm.value = true;
+// Xử lý submit form, chỉ chạy khi form hợp lệ
+const onSubmit = handleSubmit(async (values) => {
+  isSubmitting.value = true;
+  try {
+    if (showAddForm.value) {
+      await addUser(values);
+    } else {
+      await updateUser(values);
+    }
+    closeModal();
+    await Swal.fire({
+      icon: 'success',
+      title: 'Thành công!',
+      text: showAddForm.value ? 'Thêm user thành công!' : 'Cập nhật user thành công!',
+      timer: 1500,
+      showConfirmButton: false,
+    });
+  } catch (error) {
+    console.error('Lỗi khi lưu user:', error);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Lỗi!',
+      text: 'Có lỗi xảy ra khi lưu dữ liệu: ' + (error.message || error),
+      confirmButtonText: 'OK',
+    });
+  } finally {
+    isSubmitting.value = false;
+  }
+});
+
+
+// Load danh sách user mẫu
+async function loadUsers() {
+  isLoading.value = true;
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1000)); // giả lập delay
+    users.value = [
+      { id: 1, name: 'Nguyễn Văn A', email: 'nguyenvana@example.com', phone: '0123456789', createdAt: '2024-01-15T10:30:00Z' },
+      { id: 2, name: 'Trần Thị B', email: 'tranthib@example.com', phone: '0987654321', createdAt: '2024-01-16T14:20:00Z' },
+      { id: 3, name: 'Lê Văn C', email: 'levanc@example.com', phone: '0369258147', createdAt: '2024-01-17T09:15:00Z' },
+      { id: 4, name: 'Phạm Thị D', email: 'phamthid@example.com', phone: '0741852963', createdAt: '2024-01-18T16:45:00Z' },
+      { id: 5, name: 'Hoàng Văn E', email: 'hoangvane@example.com', phone: '0582639741', createdAt: '2024-01-19T11:30:00Z' },
+      { id: 6, name: 'Hà Thành Đạt', email: 'htdat2711@gmail.com', phone: '0987654321', createdAt: '2024-01-20T12:00:00Z' },
+    ];
+  } catch (error) {
+    console.error('Lỗi khi tải danh sách user:', error);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Lỗi!',
+      text: 'Lỗi khi tải danh sách user',
+      confirmButtonText: 'OK',
+    });
+  } finally {
+    isLoading.value = false;
+  }
 }
 
+// Xóa user
 async function deleteUser(userId) {
   const result = await Swal.fire({
     title: 'Xác nhận xóa',
@@ -317,18 +291,19 @@ async function deleteUser(userId) {
     confirmButtonColor: '#dc3545',
     cancelButtonColor: '#6c757d',
     confirmButtonText: 'Xóa',
-    cancelButtonText: 'Hủy'
+    cancelButtonText: 'Hủy',
   });
   if (!result.isConfirmed) return;
+
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 500)); // giả lập delay
     users.value = users.value.filter(u => u.id !== userId);
     await Swal.fire({
       icon: 'success',
       title: 'Thành công!',
       text: 'Xóa user thành công!',
       timer: 1500,
-      showConfirmButton: false
+      showConfirmButton: false,
     });
     if (paginatedUsers.value.length === 0 && currentPage.value > 1) {
       currentPage.value--;
@@ -339,11 +314,12 @@ async function deleteUser(userId) {
       icon: 'error',
       title: 'Lỗi!',
       text: 'Có lỗi xảy ra khi xóa user',
-      confirmButtonText: 'OK'
+      confirmButtonText: 'OK',
     });
   }
 }
 
+// Đăng xuất
 async function logout() {
   const result = await Swal.fire({
     title: 'Xác nhận đăng xuất',
@@ -353,7 +329,7 @@ async function logout() {
     confirmButtonColor: '#4fc08d',
     cancelButtonColor: '#6c757d',
     confirmButtonText: 'Đăng xuất',
-    cancelButtonText: 'Hủy'
+    cancelButtonText: 'Hủy',
   });
   if (result.isConfirmed) {
     localStorage.removeItem('isLoggedIn');
@@ -364,32 +340,33 @@ async function logout() {
       title: 'Thành công!',
       text: 'Đăng xuất thành công!',
       timer: 1500,
-      showConfirmButton: false
+      showConfirmButton: false,
     });
     router.push('/login');
   }
 }
 
+// Cuộn trang lên đầu bảng khi thêm/sửa xong
 function scrollToTop() {
   const tableContainer = document.querySelector('.table-container');
   if (tableContainer) {
     tableContainer.scrollTo({
       top: 0,
-      behavior: 'smooth'
+      behavior: 'smooth',
     });
   }
   window.scrollTo({
     top: 0,
-    behavior: 'smooth'
+    behavior: 'smooth',
   });
 }
 
-// Watchers
+// Watch search query reset trang
 watch(searchQuery, () => {
   currentPage.value = 1;
 });
 
-// Lifecycle
+// Lifecycle load data + lấy user info
 onMounted(() => {
   const userInfo = localStorage.getItem('userInfo');
   if (userInfo) {
@@ -400,6 +377,7 @@ onMounted(() => {
   loadUsers();
 });
 </script>
+
 
 <style scoped>
 .action-bar {

@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '@/views/LoginPage.vue'
-import UserAction from '@/components/UserAction.vue'
+import UserAction from '@/service/UserAction.vue'
 const routes = [
   {
     path: '/',

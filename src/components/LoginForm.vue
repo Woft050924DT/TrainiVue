@@ -4,15 +4,29 @@
       <h1>{{ text }}</h1>
     </header>
 
-    <form @submit.prevent="handleSubmit" class="login-form">
+    <form @submit.prevent="onSubmit" class="login-form">
       <div class="form-group">
         <label for="username">Email</label>
-        <input type="text" id="username" v-model="username" required />
+        <input
+          type="text"
+          id="username"
+          v-model="username"
+          :class="{ error: usernameError }"
+          autocomplete="username"
+        />
+        <span v-if="usernameError" class="error-message">{{ usernameError }}</span>
       </div>
 
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" v-model="password" required />
+        <input
+          type="password"
+          id="password"
+          v-model="password"
+          :class="{ error: passwordError }"
+          autocomplete="current-password"
+        />
+        <span v-if="passwordError" class="error-message">{{ passwordError }}</span>
       </div>
 
       <div class="checkbox-group">
@@ -20,8 +34,8 @@
         <label for="remember">Remember me</label>
       </div>
 
-      <button type="submit" :disabled="isLoading">
-        {{ isLoading ? 'Đang đăng nhập...' : 'Login' }}
+      <button type="submit" :disabled="isSubmitting">
+        {{ isSubmitting ? 'Đang đăng nhập...' : 'Login' }}
       </button>
 
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
@@ -30,29 +44,30 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
+import { useForm, useField } from 'vee-validate';
+import * as yup from 'yup';
 import { defineEmits } from 'vue';
 
 const emit = defineEmits(['login-success']);
 
 const text = ref('Login Form');
-const username = ref('');
-const password = ref('');
-const rememberMe = ref(false);
 const errorMessage = ref('');
-const isLoading = ref(false);
 
-function isValidEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
+// Use Vee-Validate for form handling
+const schema = yup.object({
+  username: yup.string().required('Vui lòng nhập email').email('Vui lòng nhập đúng định dạng email'),
+  password: yup.string().required('Vui lòng nhập mật khẩu'),
+  rememberMe: yup.boolean(),
+});
 
-function resetForm() {
-  username.value = '';
-  password.value = '';
-  rememberMe.value = false;
-  errorMessage.value = '';
-}
+const { handleSubmit, isSubmitting, resetForm } = useForm({
+  validationSchema: schema,
+});
+
+const { value: username, errorMessage: usernameError } = useField('username');
+const { value: password, errorMessage: passwordError } = useField('password');
+const { value: rememberMe } = useField('rememberMe');
 
 function onLoginSuccess() {
   emit('login-success', {
@@ -60,9 +75,10 @@ function onLoginSuccess() {
     rememberMe: rememberMe.value,
   });
   resetForm();
+  errorMessage.value = '';
 }
 
-async function performLogin() {
+async function performLogin(values) {
   try {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
@@ -73,7 +89,7 @@ async function performLogin() {
     ];
 
     const isValid = validCredentials.some(
-      (cred) => cred.username === username.value && cred.password === password.value
+      (cred) => cred.username === values.username && cred.password === values.password
     );
 
     if (isValid) {
@@ -83,38 +99,13 @@ async function performLogin() {
     }
   } catch {
     errorMessage.value = 'Đăng nhập thất bại. Vui lòng thử lại.';
-  } finally {
-    isLoading.value = false;
   }
 }
 
-function handleSubmit() {
-  errorMessage.value = '';
-
-  if (!username.value.trim()) {
-    errorMessage.value = 'Vui lòng nhập email';
-    return;
-  }
-  if (!password.value.trim()) {
-    errorMessage.value = 'Vui lòng nhập mật khẩu';
-    return;
-  }
-  if (!isValidEmail(username.value)) {
-    errorMessage.value = 'Vui lòng nhập đúng định dạng email';
-    return;
-  }
-
-  isLoading.value = true;
-  performLogin();
-}
-
-watch([username, password], () => {
-  if (errorMessage.value) errorMessage.value = '';
-});
+const onSubmit = handleSubmit(performLogin);
 </script>
 
 <style scoped>
-/* Giữ nguyên style hiện tại */
 .login-container {
     width: 400px;
     padding: 2.5rem 3rem;
@@ -126,7 +117,6 @@ watch([username, password], () => {
     color: #333;
 }
 
-/* Tiêu đề */
 .login-container header h1 {
     font-size: 2rem;
     font-weight: 700;
@@ -142,14 +132,12 @@ watch([username, password], () => {
     gap: 1.5rem;
 }
 
-/* Nhóm input chính */
 .form-group {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
 }
 
-/* Nhóm checkbox */
 .checkbox-group {
     display: flex;
     flex-direction: row;
@@ -174,7 +162,6 @@ watch([username, password], () => {
     margin: 0;
 }
 
-/* Input text và password */
 input[type="text"],
 input[type="password"] {
     padding: 14px 16px;
@@ -195,7 +182,6 @@ input[type="password"]:focus {
     box-shadow: 0 0 0 3px rgba(79, 192, 141, 0.1);
 }
 
-/* Checkbox */
 input[type="checkbox"] {
     width: 18px;
     height: 18px;
@@ -204,7 +190,6 @@ input[type="checkbox"] {
     margin: 0;
 }
 
-/* Nút submit */
 button[type="submit"] {
     margin-top: 1rem;
     padding: 14px 0;
@@ -230,7 +215,6 @@ button[type="submit"]:active {
     transform: translateY(0);
 }
 
-/* Error message */
 .error {
     color: #e74c3c;
     font-size: 0.9rem;
@@ -283,5 +267,15 @@ input[type="password"]:hover {
         opacity: 1;
         transform: translateY(0);
     }
+}
+input.error {
+    border-color: #e74c3c;
+}
+
+.error-message {
+    color: #e74c3c;
+    font-size: 0.9rem;
+    margin-top: 0.3rem;
+    display: block;
 }
 </style>

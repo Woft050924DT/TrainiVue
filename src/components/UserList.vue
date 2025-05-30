@@ -39,63 +39,66 @@
 
       <!-- Pagination -->
       <div class="pagination" v-if="totalPages > 1">
-        <button
-          @click="currentPage = 1"
-          :disabled="currentPage === 1"
-          class="page-btn"
-        >
-          ««
-        </button>
-        <button
-          @click="currentPage--"
-          :disabled="currentPage === 1"
-          class="page-btn"
-        >
-          «
-        </button>
-        <span class="page-info">
-          Trang {{ currentPage }} / {{ totalPages }}
-        </span>
-        <button
-          @click="currentPage++"
-          :disabled="currentPage === totalPages"
-          class="page-btn"
-        >
-          »
-        </button>
-        <button
-          @click="currentPage = totalPages"
-          :disabled="currentPage === totalPages"
-          class="page-btn"
-        >
-          »»
-        </button>
-      </div>
+      <button
+        @click="goToPage(1)"
+        :disabled="currentPage === 1"
+        class="page-btn"
+      >
+        ««
+      </button>
+      <button
+        @click="goToPage(currentPage - 1)"
+        :disabled="currentPage === 1"
+        class="page-btn"
+      >
+        «
+      </button>
+      <span class="page-info">
+        Trang {{ currentPage }} / {{ totalPages }}
+      </span>
+      <button
+        @click="goToPage(currentPage + 1)"
+        :disabled="currentPage === totalPages"
+        class="page-btn"
+      >
+        »
+      </button>
+      <button
+        @click="goToPage(totalPages)"
+        :disabled="currentPage === totalPages"
+        class="page-btn"
+      >
+        »»
+      </button>
+    </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-
+import { defineProps, defineEmits } from 'vue';
 // Props nhận từ UserAction.vue
-defineProps({
+const props = defineProps({
   isSidebarVisible: Boolean,
   isLoading: Boolean,
   filteredUsers: Array,
   paginatedUsers: Array,
-  totalPages: Number
+  totalPages: Number,
+  currentPage:Number
 });
 
 // Emits gửi sự kiện đến UserAction.vue
-defineEmits(['edit-user', 'delete-user']);
+const emit = defineEmits(['edit-user', 'delete-user','update:current-page']);
 
-// State cho phân trang
-const currentPage = ref(1);
+
 
 // Hàm format ngày
 function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('vi-VN');
+}
+function goToPage(page) {
+  if (page < 1 || page > props.totalPages) return;
+  emit('update:current-page', page);
 }
 </script>
 
