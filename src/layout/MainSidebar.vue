@@ -33,12 +33,12 @@
           <span class="menu-group-title">MERCHANT</span>
           <ul>
             <li>
-              <router-link to="/merchants" class="menu-item" active-class="active">
-                <i class="icon-merchant"></i>
-                Hồ sơ Merchants
-                <i class="icon-chevron-right"></i>
-              </router-link>
-            </li>
+      <router-link to="/users" class="menu-item" active-class="active">
+        <i class="icon-transaction"></i>
+        Người dùng
+        <i class="icon-chevron-right"></i>
+      </router-link>
+    </li>
             <li>
               <router-link to="/money-fees" class="menu-item" active-class="active">
                 <i class="icon-money"></i>
