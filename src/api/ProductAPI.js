@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_PRODUCTS_URL = import.meta.env.VITE_API_Products_URL;
+const API_PRODUCTS_URL = import.meta.env.VITE_API_PRODUCTS_URL;
 
 // Lấy danh sách sản phẩm từ API
 export async function fetchProducts() {

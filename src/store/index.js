@@ -1,31 +1,37 @@
-import { createStore } from 'vuex'
+import { createStore } from 'vuex';
+import ProductModule from '../Modules/ProductModule.js';
+import UserModule from '../Modules/UserModule.js';
 
 export default createStore({
+  modules: {
+    product: ProductModule,
+    user: UserModule
+  },
   state: {
     user: null,
     isAuthenticated: false
   },
   mutations: {
     SET_USER(state, user) {
-      state.user = user
-      state.isAuthenticated = !!user
+      state.user = user;
+      state.isAuthenticated = !!user;
     },
     LOGOUT(state) {
-      state.user = null
-      state.isAuthenticated = false
+      state.user = null;
+      state.isAuthenticated = false;
     }
   },
   actions: {
     login({ commit }, user) {
-      commit('SET_USER', user)
-      localStorage.setItem('isLoggedIn', 'true')
+      commit('SET_USER', user);
+      localStorage.setItem('isLoggedIn', 'true');
     },
     logout({ commit }) {
-      commit('LOGOUT')
-      localStorage.removeItem('isLoggedIn')
+      commit('LOGOUT');
+      localStorage.removeItem('isLoggedIn');
     }
   },
   getters: {
-    isAuthenticated: state => state.isAuthenticated
+    isAuthenticated: state => state.isAuthenticated,
   }
-})
+});

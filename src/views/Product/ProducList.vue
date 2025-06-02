@@ -19,7 +19,7 @@
               Đang tải dữ liệu...
             </td>
           </tr>
-          <tr v-else-if="filteredProducts.length === 0">
+          <tr v-else-if="paginatedProducts.length === 0">
             <td colspan="6" class="no-data">
               <div class="no-data-icon">📦</div>
               Không có sản phẩm nào
@@ -33,10 +33,10 @@
             <td>{{ formatDate(product.createdAt) }}</td>
             <td class="actions">
               <button @click="$emit('edit-product', product)" class="edit-btn" title="Chỉnh sửa">
-                ✏️
+                Sửa
               </button>
               <button @click="$emit('delete-product', product.id)" class="delete-btn" title="Xóa">
-                🗑️
+                Xóa
               </button>
             </td>
           </tr>
@@ -64,16 +64,13 @@
 
 <script setup>
 import { defineProps, defineEmits } from 'vue';
-
-import '../../assets/ProductListmodule.css'; 
-
+import '../../assets/ProductListmodule.css';
 
 const props = defineProps({
   isLoading: Boolean,
-  filteredProducts: Array,
   paginatedProducts: Array,
   totalPages: Number,
-  currentPage: Number
+  currentPage: Number,
 });
 
 const emit = defineEmits(['edit-product', 'delete-product', 'update:current-page']);
@@ -95,10 +92,5 @@ function goToPage(page) {
   if (page < 1 || page > props.totalPages) return;
   emit('update:current-page', page);
 }
-
-
 </script>
 
-<style scoped>
-
-</style>

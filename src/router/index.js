@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginPage from '@/views/LoginPage.vue'
-import UserAction from '@/service/UserAction.vue'
-import ProductAction from '@/service/ProductAction.vue' 
+import UserAction from '@/components/UserAction.vue'
+import ProductAction from '@/components/ProductAction.vue' 
 
 const routes = [
   {
